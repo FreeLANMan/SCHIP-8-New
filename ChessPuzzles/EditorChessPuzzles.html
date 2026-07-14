@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Quebra-cabeças de Xadrez (Super Chip)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+        }
+        body {
+            background: #1e1e2f;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            margin: 0;
+            min-height: 100vh;
+        }
+        .editor {
+            background: #2d2d44;
+            border-radius: 20px;
+            padding: 25px 30px;
+            max-width: 1000px;
+            width: fit-content;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            color: #f0f0f0;
+        }
+        h1 {
+            margin: 0 0 15px 0;
+            font-weight: 300;
+            letter-spacing: 1px;
+            font-size: 1.8rem;
+            border-bottom: 2px solid #5a5a7a;
+            padding-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        h1 small {
+            font-size: 0.9rem;
+            color: #aaa;
+            font-weight: 300;
+        }
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 25px;
+            align-items: flex-start;
+        }
+        .board-wrapper {
+            background: #3a3a55;
+            padding: 15px;
+            border-radius: 16px;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.5);
+        }
+        canvas#boardCanvas {
+            display: block;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 480px;
+            height: 480px;
+        }
+        .panel {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            min-width: 200px;
+        }
+        .palette {
+            background: #3a3a55;
+            border-radius: 16px;
+            padding: 15px;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.5);
+        }
+        .palette h3 {
+            margin: 0 0 8px 0;
+            font-weight: 400;
+            font-size: 1rem;
+            color: #ccc;
+            letter-spacing: 0.5px;
+        }
+        .piece-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 6px;
+        }
+        .piece-btn {
+            background: #e0e0e0;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            font-size: 1.8rem;
+            padding: 6px 0;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.15s;
+            color: #000;
+            line-height: 1.4;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .piece-btn:hover {
+            background: #cccccc;
+            transform: scale(1.02);
+        }
+        .piece-btn.active {
+            border-color: #ffaa66;
+            background: #d4c4a0;
+            box-shadow: 0 0 12px #ffaa66aa;
+        }
+        .tool-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        .tool-btn {
+            background: #4a4a6a;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 6px 14px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            color: #f0f0f0;
+            transition: 0.15s;
+            flex: 1;
+            text-align: center;
+            font-weight: 500;
+        }
+        .tool-btn:hover {
+            background: #5a5a8a;
+        }
+        .tool-btn.active {
+            border-color: #ffaa66;
+            background: #5a4a3a;
+        }
+        .tool-btn.start-btn { background: #2a6b3a; }
+        .tool-btn.start-btn.active { background: #3a8a4a; border-color: #88ff88; }
+        .tool-btn.end-btn { background: #6b2a2a; }
+        .tool-btn.end-btn.active { background: #8a3a3a; border-color: #ff8888; }
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .btn {
+            background: #4a4a6a;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 18px;
+            color: #f0f0f0;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: 0.15s;
+            font-weight: 500;
+        }
+        .btn:hover {
+            background: #6a6a8a;
+            transform: scale(1.02);
+        }
+        .btn.primary {
+            background: #6a4a8a;
+        }
+        .btn.primary:hover {
+            background: #8a5aaa;
+        }
+        .btn.success {
+            background: #2a7a4a;
+        }
+        .btn.success:hover {
+            background: #3a9a5a;
+        }
+        .btn.danger {
+            background: #7a3a3a;
+        }
+        .btn.danger:hover {
+            background: #9a4a4a;
+        }
+        .btn.small {
+            padding: 5px 12px;
+            font-size: 0.8rem;
+        }
+        .btn.warning {
+            background: #aa8833;
+        }
+        .btn.warning:hover {
+            background: #ccaa44;
+        }
+        .status {
+            font-size: 0.85rem;
+            color: #aaa;
+            margin-top: 4px;
+        }
+        .legend {
+            display: flex;
+            gap: 20px;
+            font-size: 0.85rem;
+            color: #ccc;
+            margin-top: 6px;
+        }
+        .legend span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .legend .dot {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+        .dot.start { background: #66dd88; }
+        .dot.end { background: #dd6666; }
+        .fen-area {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .fen-area input {
+            background: #0e0e1a;
+            border: 1px solid #4a4a6a;
+            border-radius: 6px;
+            color: #cfcfcf;
+            padding: 8px 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            width: 100%;
+        }
+        .fen-area input:focus {
+            outline: none;
+            border-color: #ffaa66;
+        }
+        .code-area {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .code-area textarea {
+            background: #0e0e1a;
+            border: 1px solid #4a4a6a;
+            border-radius: 8px;
+            color: #cfcfcf;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            padding: 10px;
+            resize: vertical;
+            width: 100%;
+            min-height: 70px;
+            line-height: 1.5;
+        }
+        .code-area textarea:focus {
+            outline: none;
+            border-color: #ffaa66;
+        }
+        @media (max-width: 820px) {
+            .row { flex-direction: column; align-items: center; }
+            canvas#boardCanvas { width: 360px; height: 360px; }
+        }
+    </style>
+</head>
+<body>
+<div class="editor">
+    <h1>
+        ♚ Editor de Quebra-cabeças de Xadrez
+        <small>para Super Chip</small>
+    </h1>
+    <div class="row">
+        <!-- Tabuleiro -->
+        <div class="board-wrapper">
+            <canvas id="boardCanvas" width="480" height="480"></canvas>
+            <div class="legend">
+                <span><span class="dot start"></span> Origem</span>
+                <span><span class="dot end"></span> Destino</span>
+                <span style="color:#aaa;">Clique para colocar / remover</span>
+            </div>
+        </div>
+
+        <!-- Painel direito -->
+        <div class="panel">
+            <div class="palette">
+                <h3>🧩 Peças</h3>
+                <div class="piece-grid" id="pieceGrid"></div>
+                <div class="tool-row">
+                    <button class="tool-btn empty-btn" data-tool="empty">✕ Vazio</button>
+                    <button class="tool-btn start-btn" data-tool="start">⬤ Origem</button>
+                    <button class="tool-btn end-btn" data-tool="end">⬤ Destino</button>
+                    <button class="tool-btn warning" id="invertBtn" style="flex:1;">🔄 Inverter</button>
+                </div>
+            </div>
+
+            <!-- FEN import/export -->
+            <div class="fen-area">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: 300;">♟ FEN</span>
+                    <span class="status" id="fenStatus">Pronto</span>
+                </div>
+                <input type="text" id="fenInput" placeholder="ex: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR">
+                <div class="btn-group">
+                    <button class="btn primary small" id="importFenBtn">Importar FEN</button>
+                    <button class="btn small" id="exportFenBtn">Exportar FEN</button>
+                </div>
+            </div>
+
+            <!-- Código do jogo (formato original) -->
+            <div class="code-area">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: 300;">📋 Código do nível</span>
+                    <span class="status" id="statusMsg">Pronto</span>
+                </div>
+                <textarea id="codeOutput" spellcheck="false"></textarea>
+                <div class="btn-group">
+                    <button class="btn success" id="genBtn">Gerar Código</button>
+                    <button class="btn primary" id="loadBtn">Carregar</button>
+                    <button class="btn" id="exampleBtn">Carregar Exemplo</button>
+                    <button class="btn danger" id="clearBtn">Limpar Tudo</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ------------------------------------------------------------
+    // Constantes e mapeamento
+    // ------------------------------------------------------------
+    const PIECES = [
+        { id: 0,  label: ' ',   unicode: ' ' },
+        { id: 1,  label: 'P',   unicode: '♙' },
+        { id: 2,  label: 'T',   unicode: '♖' },
+        { id: 3,  label: 'C',   unicode: '♘' },
+        { id: 4,  label: 'B',   unicode: '♗' },
+        { id: 5,  label: 'D',   unicode: '♕' },
+        { id: 6,  label: 'R',   unicode: '♔' },
+        { id: 7,  label: 'p',   unicode: '♟' },
+        { id: 8,  label: 't',   unicode: '♜' },
+        { id: 9,  label: 'c',   unicode: '♞' },
+        { id: 10, label: 'b',   unicode: '♝' },
+        { id: 11, label: 'd',   unicode: '♛' },
+        { id: 12, label: 'r',   unicode: '♚' }
+    ];
+    const PIECE_MAP = {};
+    PIECES.forEach(p => PIECE_MAP[p.id] = p);
+
+    // Mapeamento FEN -> id
+    const FEN_MAP = {
+        'P': 1, 'N': 3, 'B': 4, 'R': 2, 'Q': 5, 'K': 6,
+        'p': 7, 'n': 9, 'b': 10, 'r': 8, 'q': 11, 'k': 12
+    };
+    const ID_TO_FEN = {};
+    for (let [fen, id] of Object.entries(FEN_MAP)) {
+        ID_TO_FEN[id] = fen;
+    }
+
+    const LIGHT = '#f0d9b5';
+    const DARK  = '#b58863';
+
+    // ------------------------------------------------------------
+    // Estado
+    // ------------------------------------------------------------
+    let board = new Array(64).fill(0);
+    let startIdx = -1;
+    let endIdx = -1;
+    let activeTool = 1;
+
+    const canvas = document.getElementById('boardCanvas');
+    const ctx = canvas.getContext('2d');
+    const codeOutput = document.getElementById('codeOutput');
+    const statusMsg = document.getElementById('statusMsg');
+    const fenInput = document.getElementById('fenInput');
+    const fenStatus = document.getElementById('fenStatus');
+    const CELL_SIZE = 60;
+
+    // ------------------------------------------------------------
+    // Renderização do tabuleiro
+    // ------------------------------------------------------------
+    function drawBoard() {
+        ctx.clearRect(0, 0, 480, 480);
+        for (let y = 0; y < 8; y++) {
+            for (let x = 0; x < 8; x++) {
+                const idx = y * 8 + x;
+                const isLight = (x + y) % 2 === 0;
+                ctx.fillStyle = isLight ? LIGHT : DARK;
+                ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+
+                if (idx === startIdx) {
+                    ctx.fillStyle = 'rgba(100, 220, 120, 0.35)';
+                    ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                } else if (idx === endIdx) {
+                    ctx.fillStyle = 'rgba(220, 100, 100, 0.35)';
+                    ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                }
+
+                const pieceId = board[idx];
+                if (pieceId !== 0) {
+                    const p = PIECE_MAP[pieceId];
+                    if (p) {
+                        ctx.font = 'bold 48px "Segoe UI Symbol", "Arial Unicode MS", sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillStyle = '#000000';
+                        ctx.shadowColor = 'transparent';
+                        ctx.fillText(p.unicode, x * CELL_SIZE + CELL_SIZE/2, y * CELL_SIZE + CELL_SIZE/2 + 2);
+                    }
+                }
+            }
+        }
+        ctx.strokeStyle = '#2a2a3a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, 0, 480, 480);
+    }
+
+    // ------------------------------------------------------------
+    // Interface da paleta
+    // ------------------------------------------------------------
+    function buildPalette() {
+        const grid = document.getElementById('pieceGrid');
+        grid.innerHTML = '';
+        for (let id = 1; id <= 12; id++) {
+            const p = PIECE_MAP[id];
+            const btn = document.createElement('button');
+            btn.className = 'piece-btn';
+            btn.textContent = p.unicode;
+            btn.dataset.id = id;
+            btn.dataset.tool = 'piece';
+            btn.style.color = '#000';
+            btn.addEventListener('click', () => selectTool(id));
+            grid.appendChild(btn);
+        }
+        updatePaletteActive();
+    }
+
+    function updatePaletteActive() {
+        document.querySelectorAll('.piece-btn').forEach(btn => {
+            const id = parseInt(btn.dataset.id);
+            btn.classList.toggle('active', (activeTool === id && typeof activeTool === 'number'));
+        });
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            const tool = btn.dataset.tool;
+            btn.classList.toggle('active', (activeTool === tool));
+        });
+    }
+
+    function selectTool(tool) {
+        activeTool = tool;
+        updatePaletteActive();
+        statusMsg.textContent = `Ferramenta: ${getToolName(tool)}`;
+    }
+
+    function getToolName(tool) {
+        if (typeof tool === 'number') {
+            const p = PIECE_MAP[tool];
+            return p ? p.label : 'Peça';
+        }
+        switch (tool) {
+            case 'empty': return 'Vazio';
+            case 'start': return 'Origem';
+            case 'end':   return 'Destino';
+            default: return tool;
+        }
+    }
+
+    function setupToolButtons() {
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tool = btn.dataset.tool;
+                if (tool) selectTool(tool);
+            });
+        });
+    }
+
+    // ------------------------------------------------------------
+    // Inverter tabuleiro (giro 180° + troca de cores)
+    // ------------------------------------------------------------
+    function flipBoard() {
+        const newBoard = new Array(64).fill(0);
+        for (let i = 0; i < 64; i++) {
+            let id = board[i];
+            // Inverte a cor da peça (branco ⇄ preto)
+            if (id >= 1 && id <= 6) {
+                id = id + 6;
+            } else if (id >= 7 && id <= 12) {
+                id = id - 6;
+            }
+            // Move para a posição oposta (rotação de 180°)
+            const newIdx = 63 - i;
+            newBoard[newIdx] = id;
+        }
+
+        // Atualiza as células de origem e destino
+        if (startIdx !== -1) {
+            startIdx = 63 - startIdx;
+        }
+        if (endIdx !== -1) {
+            endIdx = 63 - endIdx;
+        }
+
+        board = newBoard;
+        drawBoard();
+        fenInput.value = exportFEN();
+        codeOutput.value = generateCode();
+        statusMsg.textContent = 'Tabuleiro invertido (giro 180°)';
+        fenStatus.textContent = 'Tabuleiro invertido';
+    }
+
+    // ------------------------------------------------------------
+    // Lógica FEN
+    // ------------------------------------------------------------
+    function importFEN(fen) {
+        const parts = fen.trim().split(/\s+/);
+        if (parts.length === 0) {
+            fenStatus.textContent = 'FEN inválido';
+            return false;
+        }
+        const boardStr = parts[0];
+        const rows = boardStr.split('/');
+        if (rows.length !== 8) {
+            fenStatus.textContent = 'FEN deve ter 8 fileiras';
+            return false;
+        }
+
+        board.fill(0);
+        let row = 0;
+        for (let r of rows) {
+            let col = 0;
+            for (let ch of r) {
+                if (ch >= '1' && ch <= '8') {
+                    col += parseInt(ch, 10);
+                } else {
+                    const id = FEN_MAP[ch];
+                    if (id === undefined) {
+                        fenStatus.textContent = `Caractere desconhecido: ${ch}`;
+                        return false;
+                    }
+                    if (col >= 8) {
+                        fenStatus.textContent = 'FEN excede 8 colunas';
+                        return false;
+                    }
+                    board[row * 8 + col] = id;
+                    col++;
+                }
+            }
+            if (col !== 8) {
+                fenStatus.textContent = `Fileira ${row+1} tem ${col} colunas (esperado 8)`;
+                return false;
+            }
+            row++;
+        }
+        drawBoard();
+        fenStatus.textContent = 'FEN importado com sucesso!';
+        return true;
+    }
+
+    function exportFEN() {
+        let fenRows = [];
+        for (let row = 0; row < 8; row++) {
+            let rowStr = '';
+            let empty = 0;
+            for (let col = 0; col < 8; col++) {
+                const idx = row * 8 + col;
+                const id = board[idx];
+                if (id === 0) {
+                    empty++;
+                } else {
+                    if (empty > 0) {
+                        rowStr += String(empty);
+                        empty = 0;
+                    }
+                    const fenChar = ID_TO_FEN[id];
+                    rowStr += fenChar || '?';
+                }
+            }
+            if (empty > 0) rowStr += String(empty);
+            fenRows.push(rowStr);
+        }
+        return fenRows.join('/');
+    }
+
+    // ------------------------------------------------------------
+    // Clique no tabuleiro
+    // ------------------------------------------------------------
+    function handleBoardClick(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const mx = (e.clientX - rect.left) * scaleX;
+        const my = (e.clientY - rect.top) * scaleY;
+        const col = Math.floor(mx / CELL_SIZE);
+        const row = Math.floor(my / CELL_SIZE);
+        if (col < 0 || col > 7 || row < 0 || row > 7) return;
+        const idx = row * 8 + col;
+
+        if (activeTool === 'empty') {
+            board[idx] = 0;
+            if (startIdx === idx) startIdx = -1;
+            if (endIdx === idx) endIdx = -1;
+            statusMsg.textContent = `Célula ${idx} limpa`;
+        } else if (activeTool === 'start') {
+            if (startIdx !== -1) {
+                if (startIdx === idx) {
+                    startIdx = -1;
+                    statusMsg.textContent = 'Origem removida';
+                } else {
+                    startIdx = idx;
+                    statusMsg.textContent = `Origem definida em ${idx}`;
+                }
+            } else {
+                startIdx = idx;
+                statusMsg.textContent = `Origem definida em ${idx}`;
+            }
+        } else if (activeTool === 'end') {
+            if (endIdx !== -1) {
+                if (endIdx === idx) {
+                    endIdx = -1;
+                    statusMsg.textContent = 'Destino removido';
+                } else {
+                    endIdx = idx;
+                    statusMsg.textContent = `Destino definido em ${idx}`;
+                }
+            } else {
+                endIdx = idx;
+                statusMsg.textContent = `Destino definido em ${idx}`;
+            }
+        } else if (typeof activeTool === 'number' && activeTool >= 1 && activeTool <= 12) {
+            board[idx] = activeTool;
+            statusMsg.textContent = `Peça ${PIECE_MAP[activeTool].label} colocada em ${idx}`;
+        } else {
+            statusMsg.textContent = 'Ferramenta desconhecida';
+        }
+        drawBoard();
+        // Atualiza FEN e código automaticamente
+        fenInput.value = exportFEN();
+        codeOutput.value = generateCode();
+    }
+
+    // ------------------------------------------------------------
+    // Gerar / Carregar código original
+    // ------------------------------------------------------------
+    function generateCode() {
+        const parts = [];
+        for (let i = 0; i < 64; i++) parts.push(board[i]);
+        parts.push(startIdx === -1 ? 0 : startIdx);
+        parts.push(endIdx === -1 ? 0 : endIdx);
+        return parts.join(' ');
+    }
+
+    function loadCode(str) {
+        const numbers = str.trim().split(/\s+/).map(Number);
+        if (numbers.length < 66) {
+            statusMsg.textContent = 'Erro: código deve ter pelo menos 66 números (64+2)';
+            return false;
+        }
+        for (let i = 0; i < 64; i++) {
+            const val = numbers[i] || 0;
+            if (val < 0 || val > 12) {
+                statusMsg.textContent = `Valor inválido na posição ${i}: ${val}`;
+                return false;
+            }
+            board[i] = val;
+        }
+        startIdx = numbers[64] || 0;
+        endIdx = numbers[65] || 0;
+        if (startIdx < -1 || startIdx > 63) startIdx = -1;
+        if (endIdx < -1 || endIdx > 63) endIdx = -1;
+        drawBoard();
+        statusMsg.textContent = 'Código carregado com sucesso!';
+        return true;
+    }
+
+    // ------------------------------------------------------------
+    // Exemplo padrão (FEN: k7/2R5/1K6/8/8/8/8/8)
+    // ------------------------------------------------------------
+    function loadDefaultExample() {
+        const fen = 'k7/2R5/1K6/8/8/8/8/8';
+        if (importFEN(fen)) {
+            startIdx = 10; // c7
+            endIdx = 0;    // a8
+            fenInput.value = fen;
+            drawBoard();
+            codeOutput.value = generateCode();
+            statusMsg.textContent = 'Exemplo carregado (k7/2R5/1K6/8/8/8/8/8)';
+            fenStatus.textContent = 'Exemplo carregado';
+        }
+    }
+
+    // ------------------------------------------------------------
+    // Inicialização
+    // ------------------------------------------------------------
+    function init() {
+        buildPalette();
+        setupToolButtons();
+        selectTool(1);
+
+        canvas.addEventListener('click', handleBoardClick);
+
+        // Botão inverter tabuleiro (giro 180° + troca de cores)
+        document.getElementById('invertBtn').addEventListener('click', flipBoard);
+
+        // Botões de FEN
+        document.getElementById('importFenBtn').addEventListener('click', () => {
+            const fen = fenInput.value.trim();
+            if (!fen) {
+                fenStatus.textContent = 'Digite um FEN válido';
+                return;
+            }
+            if (importFEN(fen)) {
+                codeOutput.value = generateCode();
+                statusMsg.textContent = 'FEN importado';
+            }
+        });
+
+        document.getElementById('exportFenBtn').addEventListener('click', () => {
+            fenInput.value = exportFEN();
+            fenStatus.textContent = 'FEN gerado';
+        });
+
+        // Botões do código original
+        document.getElementById('genBtn').addEventListener('click', () => {
+            codeOutput.value = generateCode();
+            statusMsg.textContent = 'Código gerado! Copie e cole no jogo.';
+        });
+
+        document.getElementById('loadBtn').addEventListener('click', () => {
+            const code = codeOutput.value.trim();
+            if (!code) {
+                statusMsg.textContent = 'Insira o código na área de texto primeiro.';
+                return;
+            }
+            if (loadCode(code)) {
+                fenInput.value = exportFEN();
+                fenStatus.textContent = 'FEN atualizado';
+            }
+        });
+
+        document.getElementById('exampleBtn').addEventListener('click', () => {
+            loadDefaultExample();
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            board.fill(0);
+            startIdx = -1;
+            endIdx = -1;
+            drawBoard();
+            codeOutput.value = '';
+            fenInput.value = '';
+            statusMsg.textContent = 'Tabuleiro limpo';
+            fenStatus.textContent = 'Limpo';
+        });
+
+        // Carrega o exemplo padrão na inicialização
+        loadDefaultExample();
+    }
+
+    init();
+</script>
+</body>
+</html>
