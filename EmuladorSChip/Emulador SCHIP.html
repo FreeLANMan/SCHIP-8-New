@@ -1,0 +1,1769 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CHIP-8 / SCHIP Emulator</title>
+    <style>
+        /* ─── Reset & Base ─── */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            padding: 8px;
+            touch-action: manipulation;
+            overflow-x: hidden;
+        }
+
+        .emulator-container {
+            background: #16213e;
+            border-radius: 20px;
+            padding: 18px 18px 14px 18px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+            max-width: 860px;
+            width: 100%;
+            position: relative;
+            transition: margin-bottom 0.3s ease;
+            margin-bottom: 0;
+        }
+
+        /* ─── Header ─── */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .header h1 {
+            color: #7fdb9a;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-shadow: 0 0 12px rgba(127, 219, 154, 0.2);
+        }
+        .header h1 small {
+            color: #5a7a8a;
+            font-size: 16px;
+            font-weight: 400;
+        }
+        .status {
+            color: #8899aa;
+            font-size: 16px;
+            background: #0f1a2b;
+            padding: 4px 16px;
+            border-radius: 30px;
+            border: 1px solid #2a3a4a;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .status .mode-badge {
+            padding: 2px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            letter-spacing: 0.3px;
+        }
+        .mode-badge.chip8 {
+            background: #1a4a3a;
+            color: #5fcf8a;
+        }
+        .mode-badge.schip {
+            background: #2a3a6a;
+            color: #7ab0ff;
+        }
+        .rom-name {
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 15px;
+        }
+
+        /* ─── Toolbar ─── */
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .toolbar button,
+        .toolbar label {
+            background: #1f2f44;
+            border: 1px solid #2f4058;
+            color: #b0c8dd;
+            padding: 8px 18px;
+            border-radius: 30px;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            touch-action: manipulation;
+        }
+        .toolbar button:active,
+        .toolbar label:active {
+            transform: scale(0.95);
+        }
+        .toolbar button.primary {
+            background: #1a5a3a;
+            border-color: #2a7a4a;
+            color: #8fdfb0;
+        }
+        .toolbar button.mode-toggle {
+            background: #2a3a5a;
+            border-color: #4a6a8a;
+            color: #aac0dd;
+        }
+        .toolbar button.keyboard-toggle {
+            background: #2a3a4a;
+            border-color: #4a6a7a;
+            color: #8ab0dd;
+            font-size: 18px;
+            padding: 8px 14px;
+        }
+        .toolbar input[type="file"] {
+            display: none;
+        }
+        .toolbar .sep {
+            width: 1px;
+            background: #2a3a4a;
+            margin: 0 4px;
+        }
+
+        /* ─── Canvas ─── */
+        .canvas-wrapper {
+            background: #0a0f1a;
+            border-radius: 14px;
+            padding: 6px;
+            border: 1px solid #2a3a4a;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            touch-action: none;
+        }
+        .canvas-wrapper canvas {
+            display: block;
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+            aspect-ratio: 2 / 1;
+            image-rendering: pixelated;
+            border-radius: 8px;
+            background: #000;
+            touch-action: none;
+            cursor: pointer;
+        }
+        .overlay-msg {
+            position: absolute;
+            color: #8899aa;
+            font-size: 22px;
+            pointer-events: none;
+            text-align: center;
+            opacity: 0.6;
+            letter-spacing: 1px;
+            padding: 0 10px;
+        }
+
+        /* ─── Teclado Virtual ─── */
+        .virtual-keyboard {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(10, 20, 30, 0.96);
+            backdrop-filter: blur(8px);
+            border-top: 2px solid #2a4a6a;
+            padding: 14px 12px 22px 12px;
+            z-index: 1000;
+            touch-action: manipulation;
+            box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.7);
+            transition: transform 0.3s ease;
+        }
+        .virtual-keyboard.open {
+            display: block;
+        }
+
+        .keyboard-row {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .keyboard-row .key {
+            background: #1a2a3a;
+            border: 1px solid #3a5a6a;
+            color: #c0d8e8;
+            border-radius: 12px;
+            font-size: 26px;
+            font-weight: 600;
+            padding: 14px 0;
+            min-width: 58px;
+            flex: 1;
+            max-width: 84px;
+            text-align: center;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: 0.08s linear;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            font-family: 'Courier New', monospace;
+        }
+        .keyboard-row .key:active {
+            background: #3a5a7a;
+            border-color: #6a9aba;
+            transform: scale(0.94);
+        }
+        .keyboard-row .key.chip-key {
+            background: #1a3a3a;
+            border-color: #2a6a4a;
+            color: #7fdb9a;
+        }
+        .keyboard-row .key.special {
+            background: #2a2a4a;
+            border-color: #4a4a7a;
+            color: #aab0dd;
+            font-size: 20px;
+        }
+        .keyboard-row .key.wide {
+            flex: 1.8;
+            max-width: 120px;
+            font-size: 20px;
+        }
+        .keyboard-row .key.arrow {
+            font-size: 28px;
+            padding: 8px 0;
+        }
+
+        .keyboard-close {
+            display: flex;
+            justify-content: center;
+            margin-top: 8px;
+        }
+        .keyboard-close button {
+            background: #2a3a4a;
+            border: 1px solid #4a6a7a;
+            color: #8aabbb;
+            border-radius: 30px;
+            padding: 10px 32px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .keyboard-close button:active {
+            background: #3a5a6a;
+        }
+
+        /* ─── Footer ─── */
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+            color: #4a5a6a;
+            font-size: 14px;
+            border-top: 1px solid #1a2a3a;
+            padding-top: 8px;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .footer .hint {
+            color: #4a6a7a;
+        }
+        .footer .hint kbd {
+            background: #0f1a2a;
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid #2a3a4a;
+            color: #8aaabc;
+            font-size: 13px;
+        }
+
+        /* ─── Help Overlay ─── */
+        .help-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(4px);
+            padding: 16px;
+        }
+        .help-overlay.active {
+            display: flex;
+        }
+        .help-box {
+            background: #16213e;
+            border-radius: 24px;
+            padding: 28px 32px;
+            max-width: 520px;
+            width: 100%;
+            border: 1px solid #2a4a6a;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .help-box h2 {
+            color: #7fdb9a;
+            font-size: 26px;
+            margin-bottom: 6px;
+        }
+        .help-box .sub {
+            color: #5a7a8a;
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+        .help-box .section {
+            margin-bottom: 14px;
+        }
+        .help-box .section h3 {
+            color: #b0c8dd;
+            font-size: 17px;
+            margin-bottom: 4px;
+        }
+        .help-box .section p,
+        .help-box .section li {
+            color: #8899aa;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        .help-box .section ul {
+            padding-left: 20px;
+            list-style: none;
+        }
+        .help-box .section ul li::before {
+            content: "▸ ";
+            color: #4a8aaa;
+        }
+        .help-box .close-btn {
+            background: #1f2f44;
+            border: 1px solid #2f4058;
+            color: #b0c8dd;
+            padding: 10px 28px;
+            border-radius: 30px;
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            cursor: pointer;
+            margin-top: 12px;
+            transition: 0.2s;
+            width: 100%;
+            touch-action: manipulation;
+        }
+        .help-box .close-btn:active {
+            background: #2a4060;
+        }
+        .help-box kbd {
+            background: #0f1a2a;
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid #2a3a4a;
+            color: #8aaabc;
+            font-size: 14px;
+        }
+
+        /* ─── Responsividade ─── */
+        @media (max-width: 700px) {
+            .emulator-container {
+                padding: 12px 10px 10px 10px;
+            }
+            .header h1 {
+                font-size: 20px;
+            }
+            .header h1 small {
+                font-size: 14px;
+            }
+            .status {
+                font-size: 14px;
+                padding: 3px 12px;
+                gap: 6px;
+            }
+            .rom-name {
+                font-size: 13px;
+                max-width: 120px;
+            }
+            .toolbar button,
+            .toolbar label {
+                font-size: 14px;
+                padding: 6px 14px;
+            }
+            .toolbar button.keyboard-toggle {
+                font-size: 16px;
+                padding: 6px 12px;
+            }
+            .virtual-keyboard {
+                padding: 10px 8px 16px 8px;
+            }
+            .keyboard-row .key {
+                font-size: 20px;
+                padding: 12px 0;
+                min-width: 44px;
+                max-width: 64px;
+                border-radius: 10px;
+            }
+            .keyboard-row .key.wide {
+                max-width: 90px;
+                font-size: 16px;
+            }
+            .keyboard-row .key.arrow {
+                font-size: 22px;
+                padding: 6px 0;
+            }
+            .keyboard-close button {
+                font-size: 16px;
+                padding: 8px 24px;
+            }
+            .footer {
+                font-size: 12px;
+            }
+            .footer .hint kbd {
+                font-size: 11px;
+            }
+            .overlay-msg {
+                font-size: 18px;
+            }
+            .help-box h2 {
+                font-size: 22px;
+            }
+            .help-box .sub {
+                font-size: 14px;
+            }
+            .help-box .section h3 {
+                font-size: 15px;
+            }
+            .help-box .section p,
+            .help-box .section li {
+                font-size: 13px;
+            }
+            .help-box .close-btn {
+                font-size: 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 17px;
+            }
+            .header h1 small {
+                font-size: 12px;
+            }
+            .status {
+                font-size: 12px;
+                padding: 2px 10px;
+            }
+            .rom-name {
+                font-size: 11px;
+                max-width: 80px;
+            }
+            .toolbar button,
+            .toolbar label {
+                font-size: 12px;
+                padding: 4px 10px;
+            }
+            .toolbar button.keyboard-toggle {
+                font-size: 14px;
+                padding: 4px 8px;
+            }
+            .virtual-keyboard {
+                padding: 8px 6px 12px 6px;
+            }
+            .keyboard-row .key {
+                font-size: 16px;
+                padding: 10px 0;
+                min-width: 36px;
+                max-width: 52px;
+                border-radius: 8px;
+            }
+            .keyboard-row .key.wide {
+                max-width: 72px;
+                font-size: 14px;
+            }
+            .keyboard-row .key.arrow {
+                font-size: 18px;
+                padding: 4px 0;
+            }
+            .keyboard-close button {
+                font-size: 14px;
+                padding: 6px 18px;
+            }
+            .footer {
+                font-size: 10px;
+            }
+            .footer .hint kbd {
+                font-size: 9px;
+            }
+            .overlay-msg {
+                font-size: 15px;
+            }
+            .help-box {
+                padding: 20px 16px;
+            }
+            .help-box h2 {
+                font-size: 18px;
+            }
+            .help-box .sub {
+                font-size: 12px;
+            }
+            .help-box .section h3 {
+                font-size: 13px;
+            }
+            .help-box .section p,
+            .help-box .section li {
+                font-size: 12px;
+            }
+            .help-box .close-btn {
+                font-size: 14px;
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f1a2a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2a4a6a;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ─── MAIN CONTAINER ─── -->
+    <div class="emulator-container" id="app">
+        <!-- Header -->
+        <div class="header">
+            <h1>🕹️ CHIP-8 <small>· SCHIP</small></h1>
+            <div class="status">
+                <span class="rom-name" id="romName">Nenhuma ROM</span>
+                <span class="mode-badge chip8" id="modeBadge">CHIP-8</span>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <label class="primary" for="romInput">📂 Carregar ROM</label>
+            <input type="file" id="romInput" accept=".ch8,.sch8,.bin">
+            <button id="resetBtn">⟳ Reiniciar</button>
+            <button id="randColorBtn">🎨 Cores</button>
+            <button id="saveColorBtn">💾 Salvar</button>
+            <button id="modeToggleBtn" class="mode-toggle">🔀 Modo</button>
+            <span class="sep"></span>
+            <button id="keyboardToggleBtn" class="keyboard-toggle" title="Teclado virtual">⌨️</button>
+            <button id="helpBtn">❓</button>
+        </div>
+
+        <!-- Canvas -->
+        <div class="canvas-wrapper" id="canvasWrapper">
+            <canvas id="displayCanvas" width="640" height="320"></canvas>
+            <div class="overlay-msg" id="overlayMsg"></div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <span class="hint">
+                <kbd>ESC</kbd> Menu &nbsp;·&nbsp; <kbd>F1</kbd> Ajuda
+            </span>
+            <span id="fpsDisplay">60 FPS</span>
+        </div>
+    </div>
+
+    <!-- ─── VIRTUAL KEYBOARD ─── -->
+    <div class="virtual-keyboard" id="virtualKeyboard">
+        <!-- Linha 1: 1 2 3 4 -->
+        <div class="keyboard-row">
+            <div class="key chip-key" data-key="1">1</div>
+            <div class="key chip-key" data-key="2">2</div>
+            <div class="key chip-key" data-key="3">3</div>
+            <div class="key chip-key" data-key="4">4</div>
+        </div>
+        <!-- Linha 2: Q W E R (4 5 6 D) -->
+        <div class="keyboard-row">
+            <div class="key" data-key="q">Q</div>
+            <div class="key" data-key="w">W</div>
+            <div class="key" data-key="e">E</div>
+            <div class="key" data-key="r">R</div>
+        </div>
+        <!-- Linha 3: A S D F (7 8 9 E) -->
+        <div class="keyboard-row">
+            <div class="key" data-key="a">A</div>
+            <div class="key" data-key="s">S</div>
+            <div class="key" data-key="d">D</div>
+            <div class="key" data-key="f">F</div>
+        </div>
+        <!-- Linha 4: Z X C V (A 0 B F) -->
+        <div class="keyboard-row">
+            <div class="key" data-key="z">Z</div>
+            <div class="key" data-key="x">X</div>
+            <div class="key" data-key="c">C</div>
+            <div class="key" data-key="v">V</div>
+        </div>
+        <!-- Linha 5: Setas + especiais -->
+        <div class="keyboard-row">
+            <div class="key arrow" data-key="arrowup">↑</div>
+            <div class="key arrow" data-key="arrowleft">←</div>
+            <div class="key arrow" data-key="arrowdown">↓</div>
+            <div class="key arrow" data-key="arrowright">→</div>
+            <div class="key special wide" data-key="l">↺ Reiniciar</div>
+        </div>
+        <!-- Fechar -->
+        <div class="keyboard-close">
+            <button id="keyboardCloseBtn">✕ Fechar teclado</button>
+        </div>
+    </div>
+
+    <!-- ─── HELP OVERLAY ─── -->
+    <div class="help-overlay" id="helpOverlay">
+        <div class="help-box">
+            <h2>❓ CHIP-8 / SCHIP</h2>
+            <div class="sub">Emulador para navegador</div>
+            <div class="section">
+                <h3>🎮 Keypad</h3>
+                <ul>
+                    <li><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> → 1 2 3 C</li>
+                    <li><kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd><kbd>R</kbd> → 4 5 6 D</li>
+                    <li><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>F</kbd> → 7 8 9 E</li>
+                    <li><kbd>Z</kbd><kbd>X</kbd><kbd>C</kbd><kbd>V</kbd> → A 0 B F</li>
+                    <li>Setas: ↑=5  ←=7  ↓=8  →=9</li>
+                </ul>
+            </div>
+            <div class="section">
+                <h3>⚙️ Controles</h3>
+                <ul>
+                    <li><kbd>ESC</kbd> — Voltar ao menu</li>
+                    <li><kbd>F1</kbd> — Ajuda</li>
+                    <li><kbd>L</kbd> — Reiniciar ROM</li>
+                    <li><kbd>P</kbd> — Cores aleatórias</li>
+                    <li><kbd>O</kbd> — Salvar cores</li>
+                    <li><kbd>Modo</kbd> — Alternar CHIP-8/SCHIP (forçar)</li>
+                </ul>
+            </div>
+            <div class="section">
+                <h3>📐 Modos</h3>
+                <ul>
+                    <li><strong>CHIP-8</strong> — 64×32, sprites 8×N</li>
+                    <li><strong>SCHIP</strong> — 128×64, sprites 16×16</li>
+                    <li>Detecção automática via opcodes, mas você pode forçar com o botão.</li>
+                </ul>
+            </div>
+            <button class="close-btn" id="helpCloseBtn">✕ Fechar</button>
+        </div>
+    </div>
+
+    <!-- ─── JAVASCRIPT ─── -->
+    <script>
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  CHIP-8 / SCHIP EMULATOR — JavaScript Port
+        //  com teclado virtual e alternância de modo
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        // ─── DOM refs ───
+        const canvas = document.getElementById('displayCanvas');
+        const ctx = canvas.getContext('2d');
+        const romNameEl = document.getElementById('romName');
+        const modeBadgeEl = document.getElementById('modeBadge');
+        const overlayMsg = document.getElementById('overlayMsg');
+        const fpsDisplay = document.getElementById('fpsDisplay');
+        const romInput = document.getElementById('romInput');
+        const resetBtn = document.getElementById('resetBtn');
+        const randColorBtn = document.getElementById('randColorBtn');
+        const saveColorBtn = document.getElementById('saveColorBtn');
+        const modeToggleBtn = document.getElementById('modeToggleBtn');
+        const helpBtn = document.getElementById('helpBtn');
+        const helpOverlay = document.getElementById('helpOverlay');
+        const helpCloseBtn = document.getElementById('helpCloseBtn');
+        const keyboardToggleBtn = document.getElementById('keyboardToggleBtn');
+        const virtualKeyboard = document.getElementById('virtualKeyboard');
+        const keyboardCloseBtn = document.getElementById('keyboardCloseBtn');
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        const appContainer = document.querySelector('.emulator-container');
+
+        // ─── Constants ───
+        const FONTS_CHIP8 = new Uint8Array([
+            0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+            0x20, 0x60, 0x20, 0x20, 0x70, // 1
+            0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+            0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+            0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+            0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+            0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+            0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+            0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+            0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+            0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+            0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+            0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+            0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+            0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+            0xF0, 0x80, 0xF0, 0x80, 0x80 // F
+        ]);
+
+        const FONTS_SCHIP = new Uint8Array([
+            0x3C, 0x7E, 0xE7, 0xC3, 0xC3, 0xC3, 0xC3, 0xE7, 0x7E, 0x3C,
+            0x18, 0x38, 0x58, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x3C,
+            0x3C, 0x7E, 0xE3, 0x03, 0x03, 0x1E, 0x78, 0xC0, 0xFF, 0xFF,
+            0x3C, 0x7E, 0xC3, 0x03, 0x1E, 0x1E, 0x03, 0xC3, 0x7E, 0x3C,
+            0x06, 0x0E, 0x1E, 0x36, 0x66, 0xC6, 0xFF, 0xFF, 0x06, 0x06,
+            0xFF, 0xFF, 0xC0, 0xC0, 0xFC, 0xFE, 0x03, 0xC3, 0x7E, 0x3C,
+            0x3C, 0x7E, 0xC3, 0xC0, 0xFC, 0xFE, 0xC3, 0xC3, 0x7E, 0x3C,
+            0xFF, 0xFF, 0x03, 0x06, 0x0C, 0x18, 0x30, 0x60, 0x60, 0x60,
+            0x3C, 0x7E, 0xC3, 0xC3, 0x7E, 0x7E, 0xC3, 0xC3, 0x7E, 0x3C,
+            0x3C, 0x7E, 0xC3, 0xC3, 0x7F, 0x3F, 0x03, 0xC3, 0x7E, 0x3C,
+            0x3C, 0x7E, 0xC3, 0xC3, 0xFF, 0xFF, 0xC3, 0xC3, 0xC3, 0xC3,
+            0xFC, 0xFE, 0xC3, 0xC3, 0xFC, 0xFE, 0xC3, 0xC3, 0xFE, 0xFC,
+            0x3C, 0x7E, 0xC3, 0xC0, 0xC0, 0xC0, 0xC0, 0xC3, 0x7E, 0x3C,
+            0xFC, 0xFE, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xFE, 0xFC,
+            0xFF, 0xFF, 0xC0, 0xC0, 0xFC, 0xFC, 0xC0, 0xC0, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xC0, 0xC0, 0xFC, 0xFC, 0xC0, 0xC0, 0xC0, 0xC0
+        ]);
+
+        // ─── Emulator State ───
+        const state = {
+            memory: new Uint8Array(4096),
+            V: new Uint8Array(16),
+            I: 0,
+            pc: 0x200,
+            stack: new Uint16Array(16),
+            sp: 0,
+            delayTimer: 0,
+            soundTimer: 0,
+            display: new Uint8Array(128 * 64),
+            prevDisplay: new Uint8Array(128 * 64),
+            displayW: 64,
+            displayH: 32,
+            drawFlag: false,
+            keys: new Uint8Array(16),
+            keysEdge: new Uint8Array(16),
+            schipMode: false,
+            schipEnabled: false,
+            flags: new Uint8Array(8),
+            fgColor: '#33ff66',
+            bgColor: '#000000',
+            romPath: '',
+            hasRomLoaded: false,
+            romData: null,
+            cyclesPerFrame: 12,
+            lastTimerUpdate: 0,
+            lastFrameTime: 0,
+            frameInterval: 16,
+            running: false,
+            helpVisible: false,
+            audioCtx: null,
+            forceMode: null, // null = auto, true = SCHIP, false = CHIP-8
+        };
+
+        // ─── Key mapping ───
+        const KEY_MAP = {
+            '1': 0x1, '2': 0x2, '3': 0x3, '4': 0xC,
+            'q': 0x4, 'w': 0x5, 'e': 0x6, 'r': 0xD,
+            'a': 0x7, 's': 0x8, 'd': 0x9, 'f': 0xE,
+            'z': 0xA, 'x': 0x0, 'c': 0xB, 'v': 0xF,
+            'arrowup': 0x5, 'arrowleft': 0x7, 'arrowdown': 0x8, 'arrowright': 0x9,
+        };
+
+        // ─── Font loading ───
+        function loadFonts() {
+            state.memory.set(FONTS_CHIP8, 0x50);
+            state.memory.set(FONTS_SCHIP, 0x100);
+        }
+
+        // ─── Reset ───
+        function resetEmulator() {
+            state.memory.fill(0);
+            state.V.fill(0);
+            state.display.fill(0);
+            state.prevDisplay.fill(0);
+            state.keys.fill(0);
+            state.keysEdge.fill(0);
+            state.flags.fill(0);
+            state.I = 0;
+            state.pc = 0x200;
+            state.sp = 0;
+            state.delayTimer = 0;
+            state.soundTimer = 0;
+            state.drawFlag = false;
+            state.schipMode = false;
+            loadFonts();
+        }
+
+        // ─── Apply mode ───
+        function applyMode() {
+            if (state.forceMode === true) {
+                state.schipMode = true;
+                state.displayW = 128;
+                state.displayH = 64;
+                state.cyclesPerFrame = 20;
+            } else if (state.forceMode === false) {
+                state.schipMode = false;
+                state.displayW = 64;
+                state.displayH = 32;
+                state.cyclesPerFrame = 12;
+            } else {
+                state.schipMode = state.schipEnabled;
+                state.displayW = state.schipEnabled ? 128 : 64;
+                state.displayH = state.schipEnabled ? 64 : 32;
+                state.cyclesPerFrame = state.schipEnabled ? 20 : 12;
+            }
+            state.display.fill(0);
+            state.prevDisplay.fill(0);
+            state.drawFlag = true;
+            updateModeBadge();
+        }
+
+        // ─── Load ROM ───
+        function loadRom(data, name) {
+            resetEmulator();
+            const sz = Math.min(data.length, 3584);
+            state.memory.set(data.slice(0, sz), 0x200);
+            state.romData = data;
+            state.romPath = name;
+            state.hasRomLoaded = true;
+
+            state.schipEnabled = false;
+            if (state.forceMode === null) {
+                const end = Math.min(0x200 + sz, 0xFFF);
+                for (let addr = 0x200; addr < end - 1; addr += 2) {
+                    const op = (state.memory[addr] << 8) | state.memory[addr + 1];
+                    if (op === 0x00FE || op === 0x00FF || op === 0x00FD) { state.schipEnabled = true; break; }
+                    if ((op & 0xFFF0) === 0x00C0 || op === 0x00FB || op === 0x00FC) { state.schipEnabled = true; break; }
+                    if ((op & 0xF00F) === 0xD000 && (op & 0x000F) === 0) { state.schipEnabled = true; break; }
+                }
+            } else {
+                state.schipEnabled = state.forceMode;
+            }
+
+            applyMode();
+
+            state.running = true;
+            state.lastTimerUpdate = performance.now();
+            state.lastFrameTime = performance.now();
+
+            loadColorsFromStorage(name);
+
+            romNameEl.textContent = name;
+            updateModeBadge();
+            overlayMsg.textContent = '';
+            drawDisplay();
+        }
+
+        // ─── Mode badge ───
+        function updateModeBadge() {
+            const isSchip = state.schipMode;
+            if (isSchip) {
+                modeBadgeEl.textContent = 'SCHIP';
+                modeBadgeEl.className = 'mode-badge schip';
+            } else {
+                modeBadgeEl.textContent = 'CHIP-8';
+                modeBadgeEl.className = 'mode-badge chip8';
+            }
+            modeToggleBtn.textContent = isSchip ? '🔀 CHIP-8' : '🔀 SCHIP';
+        }
+
+        // ─── Alternar modo manual ───
+        function toggleMode() {
+            if (!state.hasRomLoaded) {
+                showOverlay('Carregue uma ROM primeiro', 1200);
+                return;
+            }
+            if (state.forceMode === null) {
+                state.forceMode = !state.schipEnabled;
+            } else {
+                state.forceMode = !state.forceMode;
+            }
+            if (state.romData) {
+                loadRom(state.romData, state.romPath);
+                showOverlay('Modo alterado: ' + (state.schipMode ? 'SCHIP' : 'CHIP-8'), 1200);
+            }
+        }
+
+        // ─── Colors ───
+        function hsvToRgb(h, s, v) {
+            h = h % 360;
+            const c = v * s;
+            const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+            const m = v - c;
+            let r, g, b;
+            if (h < 60) { r = c;
+                g = x;
+                b = 0; } else if (h < 120) { r = x;
+                g = c;
+                b = 0; } else if (h < 180) { r = 0;
+                g = c;
+                b = x; } else if (h < 240) { r = 0;
+                g = x;
+                b = c; } else if (h < 300) { r = x;
+                g = 0;
+                b = c; } else { r = c;
+                g = 0;
+                b = x; }
+            return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+        }
+
+        function rgbToLuminance(r, g, b) {
+            return (77 * r + 150 * g + 29 * b) >> 8;
+        }
+
+        function randomColors() {
+            const maxTries = 50;
+            let c1, c2, lum1, lum2, diff;
+
+            for (let tries = 0; tries < maxTries; tries++) {
+                const mode = Math.floor(Math.random() * 4);
+                let h1 = Math.floor(Math.random() * 360);
+                let h2 = Math.floor(Math.random() * 360);
+                let s1, s2, v1, v2;
+
+                switch (mode) {
+                    case 0:
+                        s1 = 200 + Math.floor(Math.random() * 56);
+                        s2 = 200 + Math.floor(Math.random() * 56);
+                        v1 = 180 + Math.floor(Math.random() * 76);
+                        v2 = 180 + Math.floor(Math.random() * 76);
+                        break;
+                    case 1:
+                        if (Math.random() < 0.5) {
+                            s1 = 30 + Math.floor(Math.random() * 70);
+                            v1 = 200 + Math.floor(Math.random() * 56);
+                            s2 = 200 + Math.floor(Math.random() * 56);
+                            v2 = 180 + Math.floor(Math.random() * 76);
+                        } else {
+                            s1 = 200 + Math.floor(Math.random() * 56);
+                            v1 = 180 + Math.floor(Math.random() * 76);
+                            s2 = 30 + Math.floor(Math.random() * 70);
+                            v2 = 200 + Math.floor(Math.random() * 56);
+                        }
+                        break;
+                    case 2:
+                        h2 = h1;
+                        s1 = 200 + Math.floor(Math.random() * 56);
+                        v1 = 180 + Math.floor(Math.random() * 76);
+                        s2 = Math.floor(Math.random() * 60);
+                        v2 = Math.floor(Math.random() * 30);
+                        break;
+                    case 3:
+                        h2 = h1;
+                        s1 = 180 + Math.floor(Math.random() * 76);
+                        v1 = 40 + Math.floor(Math.random() * 80);
+                        s2 = Math.floor(Math.random() * 40);
+                        v2 = 220 + Math.floor(Math.random() * 36);
+                        break;
+                }
+
+                const [r1, g1, b1] = hsvToRgb(h1, s1 / 255, v1 / 255);
+                const [r2, g2, b2] = hsvToRgb(h2, s2 / 255, v2 / 255);
+                c1 = `rgb(${r1},${g1},${b1})`;
+                c2 = `rgb(${r2},${g2},${b2})`;
+                lum1 = rgbToLuminance(r1, g1, b1);
+                lum2 = rgbToLuminance(r2, g2, b2);
+                diff = Math.abs(lum1 - lum2);
+
+                if (diff >= 60) break;
+                if (tries === Math.floor(maxTries / 2)) {
+                    // fallback
+                }
+            }
+
+            state.fgColor = c1;
+            state.bgColor = c2;
+            state.prevDisplay.fill(0xFF);
+            state.drawFlag = true;
+            drawDisplay();
+        }
+
+        // ─── Color storage ───
+        function getStorageKey(romName) {
+            return 'chip8_colors_' + romName.replace(/[^a-zA-Z0-9]/g, '_');
+        }
+
+        function loadColorsFromStorage(romName) {
+            try {
+                const data = localStorage.getItem(getStorageKey(romName));
+                if (data) {
+                    const parsed = JSON.parse(data);
+                    if (parsed.fg && parsed.bg) {
+                        state.fgColor = parsed.fg;
+                        state.bgColor = parsed.bg;
+                        state.prevDisplay.fill(0xFF);
+                        state.drawFlag = true;
+                        drawDisplay();
+                    }
+                }
+            } catch (_) { /* ignore */ }
+        }
+
+        function saveColorsToStorage() {
+            if (!state.hasRomLoaded) return;
+            try {
+                const data = JSON.stringify({ fg: state.fgColor, bg: state.bgColor });
+                localStorage.setItem(getStorageKey(state.romPath), data);
+                showOverlay('Cores salvas!', 1000);
+            } catch (_) { showOverlay('Erro ao salvar', 1200); }
+        }
+
+        // ─── Overlay message ───
+        let overlayTimeout = null;
+
+        function showOverlay(msg, duration = 1500) {
+            overlayMsg.textContent = msg;
+            overlayMsg.style.opacity = '0.8';
+            if (overlayTimeout) clearTimeout(overlayTimeout);
+            overlayTimeout = setTimeout(() => {
+                overlayMsg.style.opacity = '0';
+                setTimeout(() => { overlayMsg.textContent = ''; }, 400);
+            }, duration);
+        }
+
+        // ─── Display rendering ───
+        function drawDisplay() {
+            const w = state.displayW;
+            const h = state.displayH;
+            const canvasW = 640;
+            const canvasH = 320;
+            const scaleX = canvasW / w;
+            const scaleY = canvasH / h;
+            const scale = Math.min(scaleX, scaleY);
+            const offX = (canvasW - w * scale) / 2;
+            const offY = (canvasH - h * scale) / 2;
+
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, canvasW, canvasH);
+
+            const fg = state.fgColor;
+            const bg = state.bgColor;
+            const disp = state.display;
+            const prev = state.prevDisplay;
+            const sz = w * h;
+
+            let dirty = false;
+            for (let i = 0; i < sz; i++) {
+                if (disp[i] !== prev[i]) {
+                    dirty = true;
+                    prev[i] = disp[i];
+                }
+            }
+            if (!dirty && !state.drawFlag) return;
+            state.drawFlag = false;
+
+            const pixelSize = Math.floor(scale);
+            const totalW = w * pixelSize;
+            const totalH = h * pixelSize;
+            const ox = (canvasW - totalW) / 2;
+            const oy = (canvasH - totalH) / 2;
+
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, canvasW, canvasH);
+
+            ctx.fillStyle = fg;
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    if (disp[y * w + x]) {
+                        ctx.fillRect(ox + x * pixelSize, oy + y * pixelSize, pixelSize, pixelSize);
+                    }
+                }
+            }
+
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(ox - 1, oy - 1, totalW + 2, totalH + 2);
+        }
+
+        // ─── Sound ───
+        function playBeep() {
+            try {
+                if (!state.audioCtx) {
+                    state.audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+                }
+                const osc = state.audioCtx.createOscillator();
+                const gain = state.audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(state.audioCtx.destination);
+                osc.frequency.value = 440;
+                osc.type = 'square';
+                gain.gain.setValueAtTime(0.15, state.audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, state.audioCtx.currentTime + 0.06);
+                osc.start(state.audioCtx.currentTime);
+                osc.stop(state.audioCtx.currentTime + 0.06);
+            } catch (_) { /* no audio */ }
+        }
+
+        // ─── CPU ───
+        function cpuCycle() {
+            const mem = state.memory;
+            const V = state.V;
+            const pc = state.pc & 0xFFF;
+            const opcode = (mem[pc] << 8) | mem[(pc + 1) & 0xFFF];
+            state.pc = (pc + 2) & 0xFFF;
+
+            const nnn = opcode & 0x0FFF;
+            const kk = opcode & 0x00FF;
+            const n = opcode & 0x000F;
+            const x = (opcode & 0x0F00) >> 8;
+            const y = (opcode & 0x00F0) >> 4;
+
+            // 00xx
+            if (opcode === 0x00E0) {
+                state.display.fill(0);
+                state.drawFlag = true;
+                return;
+            }
+            if (opcode === 0x00EE) {
+                if (state.sp > 0) state.pc = state.stack[--state.sp];
+                return;
+            }
+            if (opcode === 0x00FE) {
+                if (state.forceMode === null) {
+                    state.schipMode = false;
+                    state.displayW = 64;
+                    state.displayH = 32;
+                    state.cyclesPerFrame = 12;
+                    state.display.fill(0);
+                    state.drawFlag = true;
+                    updateModeBadge();
+                }
+                return;
+            }
+            if (opcode === 0x00FF) {
+                if (state.forceMode === null) {
+                    state.schipMode = true;
+                    state.displayW = 128;
+                    state.displayH = 64;
+                    state.cyclesPerFrame = 20;
+                    state.display.fill(0);
+                    state.drawFlag = true;
+                    updateModeBadge();
+                }
+                return;
+            }
+            if (opcode === 0x00FB) { scrollRight(); return; }
+            if (opcode === 0x00FC) { scrollLeft(); return; }
+            if (opcode === 0x00FD) {
+                state.running = false;
+                showOverlay('Pressione "Carregar ROM" para selecionar', 2000);
+                return;
+            }
+            if ((opcode & 0xFFF0) === 0x00C0) { scrollDown(n); return; }
+
+            // 1xxx
+            if ((opcode & 0xF000) === 0x1000) { state.pc = nnn & 0xFFF; return; }
+            // 2xxx
+            if ((opcode & 0xF000) === 0x2000) {
+                if (state.sp < 16) state.stack[state.sp++] = state.pc;
+                state.pc = nnn & 0xFFF;
+                return;
+            }
+            // 3xxx
+            if ((opcode & 0xF000) === 0x3000) {
+                if (V[x] === kk) state.pc = (state.pc + 2) & 0xFFF;
+                return;
+            }
+            // 4xxx
+            if ((opcode & 0xF000) === 0x4000) {
+                if (V[x] !== kk) state.pc = (state.pc + 2) & 0xFFF;
+                return;
+            }
+            // 5xxx
+            if ((opcode & 0xF000) === 0x5000) {
+                if (V[x] === V[y]) state.pc = (state.pc + 2) & 0xFFF;
+                return;
+            }
+            // 6xxx
+            if ((opcode & 0xF000) === 0x6000) { V[x] = kk; return; }
+            // 7xxx
+            if ((opcode & 0xF000) === 0x7000) { V[x] = (V[x] + kk) & 0xFF; return; }
+
+            // 8xxx
+            if ((opcode & 0xF000) === 0x8000) {
+                switch (n) {
+                    case 0x0:
+                        V[x] = V[y];
+                        break;
+                    case 0x1:
+                        V[x] |= V[y];
+                        break;
+                    case 0x2:
+                        V[x] &= V[y];
+                        break;
+                    case 0x3:
+                        V[x] ^= V[y];
+                        break;
+                    case 0x4: {
+                        const sum = V[x] + V[y];
+                        V[x] = sum & 0xFF;
+                        V[0xF] = sum > 0xFF ? 1 : 0;
+                        break;
+                    }
+                    case 0x5: {
+                        const flag = V[x] >= V[y] ? 1 : 0;
+                        V[x] = (V[x] - V[y]) & 0xFF;
+                        V[0xF] = flag;
+                        break;
+                    }
+                    case 0x6: {
+                        V[0xF] = V[x] & 0x1;
+                        V[x] >>= 1;
+                        break;
+                    }
+                    case 0x7: {
+                        const flag = V[y] >= V[x] ? 1 : 0;
+                        V[x] = (V[y] - V[x]) & 0xFF;
+                        V[0xF] = flag;
+                        break;
+                    }
+                    case 0xE: {
+                        V[0xF] = (V[x] & 0x80) >> 7;
+                        V[x] = (V[x] << 1) & 0xFF;
+                        break;
+                    }
+                }
+                return;
+            }
+
+            // 9xxx
+            if ((opcode & 0xF000) === 0x9000) {
+                if (V[x] !== V[y]) state.pc = (state.pc + 2) & 0xFFF;
+                return;
+            }
+            // Axxx
+            if ((opcode & 0xF000) === 0xA000) { state.I = nnn & 0xFFF; return; }
+            // Bxxx
+            if ((opcode & 0xF000) === 0xB000) {
+                state.pc = (nnn + V[0]) & 0xFFF;
+                return;
+            }
+            // Cxxx
+            if ((opcode & 0xF000) === 0xC000) {
+                V[x] = Math.floor(Math.random() * 256) & kk;
+                return;
+            }
+            // Dxxx
+            if ((opcode & 0xF000) === 0xD000) {
+                const w = state.displayW;
+                const h = state.displayH;
+                const disp = state.display;
+
+                if (state.schipMode && n === 0) {
+                    const vx = V[x] % 128;
+                    const vy = V[y] % 64;
+                    V[0xF] = 0;
+                    for (let row = 0; row < 16; row++) {
+                        for (let col = 0; col < 16; col++) {
+                            const byteIdx = col >> 3;
+                            const bitIdx = 7 - (col & 7);
+                            const addr = (state.I + row * 2 + byteIdx) & 0xFFF;
+                            const spriteByte = mem[addr];
+                            if ((spriteByte >> bitIdx) & 1) {
+                                const px = vx + col;
+                                const py = vy + row;
+                                if (px >= 128 || py >= 64) continue;
+                                const idx = py * 128 + px;
+                                if (disp[idx]) V[0xF] = 1;
+                                disp[idx] ^= 1;
+                            }
+                        }
+                    }
+                    state.drawFlag = true;
+                } else {
+                    const ww = state.schipMode ? 128 : 64;
+                    const hh = state.schipMode ? 64 : 32;
+                    const vx = V[x] % ww;
+                    const vy = V[y] % hh;
+                    V[0xF] = 0;
+                    const rows = n;
+                    for (let row = 0; row < rows; row++) {
+                        const sprite = mem[(state.I + row) & 0xFFF];
+                        for (let col = 0; col < 8; col++) {
+                            if ((sprite & (0x80 >> col)) !== 0) {
+                                const px = vx + col;
+                                const py = vy + row;
+                                if (px >= ww || py >= hh) continue;
+                                const idx = py * ww + px;
+                                if (disp[idx]) V[0xF] = 1;
+                                disp[idx] ^= 1;
+                            }
+                        }
+                    }
+                    state.drawFlag = true;
+                }
+                return;
+            }
+
+            // Exxx
+            if ((opcode & 0xF000) === 0xE000) {
+                const k = V[x] & 0x0F;
+                if (kk === 0x9E) {
+                    if (state.keys[k]) state.pc = (state.pc + 2) & 0xFFF;
+                } else if (kk === 0xA1) {
+                    if (!state.keys[k]) state.pc = (state.pc + 2) & 0xFFF;
+                }
+                return;
+            }
+
+            // Fxxx
+            if ((opcode & 0xF000) === 0xF000) {
+                switch (kk) {
+                    case 0x07:
+                        V[x] = state.delayTimer;
+                        break;
+                    case 0x0A: {
+                        let pressed = false;
+                        for (let i = 0; i < 16; i++) {
+                            if (state.keysEdge[i]) {
+                                V[x] = i;
+                                state.keysEdge[i] = 0;
+                                pressed = true;
+                                break;
+                            }
+                        }
+                        if (!pressed) state.pc = (state.pc - 2) & 0xFFF;
+                        break;
+                    }
+                    case 0x15:
+                        state.delayTimer = V[x];
+                        break;
+                    case 0x18:
+                        state.soundTimer = V[x];
+                        break;
+                    case 0x1E:
+                        state.I = (state.I + V[x]) & 0xFFF;
+                        break;
+                    case 0x29:
+                        state.I = 0x50 + (V[x] & 0xF) * 5;
+                        break;
+                    case 0x30:
+                        if (state.schipEnabled) state.I = 0x100 + (V[x] & 0xF) * 10;
+                        break;
+                    case 0x33:
+                        mem[state.I & 0xFFF] = Math.floor(V[x] / 100);
+                        mem[(state.I + 1) & 0xFFF] = Math.floor((V[x] / 10) % 10);
+                        mem[(state.I + 2) & 0xFFF] = V[x] % 10;
+                        break;
+                    case 0x75:
+                        if (state.schipEnabled && x < 8) {
+                            for (let i = 0; i <= x; i++) state.flags[i] = V[i];
+                        }
+                        break;
+                    case 0x85:
+                        if (state.schipEnabled && x < 8) {
+                            for (let i = 0; i <= x; i++) V[i] = state.flags[i];
+                        }
+                        break;
+                    case 0x55:
+                        for (let i = 0; i <= x; i++) mem[(state.I + i) & 0xFFF] = V[i];
+                        break;
+                    case 0x65:
+                        for (let i = 0; i <= x; i++) V[i] = mem[(state.I + i) & 0xFFF];
+                        break;
+                }
+                return;
+            }
+        }
+
+        // ─── SCHIP scroll ───
+        function scrollDown(n) {
+            const h = state.displayH;
+            const w = state.displayW;
+            const disp = state.display;
+            if (n === 0) return;
+            for (let y = h - 1; y >= n; y--) {
+                for (let x = 0; x < w; x++) {
+                    disp[y * w + x] = disp[(y - n) * w + x];
+                }
+            }
+            for (let y = 0; y < n && y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    disp[y * w + x] = 0;
+                }
+            }
+            state.drawFlag = true;
+        }
+
+        function scrollLeft() {
+            const h = state.displayH;
+            const w = state.displayW;
+            const disp = state.display;
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w - 4; x++) {
+                    disp[y * w + x] = disp[y * w + x + 4];
+                }
+                for (let x = w - 4; x < w; x++) {
+                    disp[y * w + x] = 0;
+                }
+            }
+            state.drawFlag = true;
+        }
+
+        function scrollRight() {
+            const h = state.displayH;
+            const w = state.displayW;
+            const disp = state.display;
+            for (let y = 0; y < h; y++) {
+                for (let x = w - 1; x >= 4; x--) {
+                    disp[y * w + x] = disp[y * w + x - 4];
+                }
+                for (let x = 0; x < 4; x++) {
+                    disp[y * w + x] = 0;
+                }
+            }
+            state.drawFlag = true;
+        }
+
+        // ─── Update timers ───
+        function updateTimers() {
+            if (state.delayTimer > 0) state.delayTimer--;
+            if (state.soundTimer > 0) {
+                state.soundTimer--;
+                if (state.soundTimer === 0) playBeep();
+            }
+        }
+
+        // ─── Main loop ───
+        let frameCount = 0;
+        let fpsTime = 0;
+
+        function emulatorLoop(timestamp) {
+            if (!state.running) {
+                requestAnimationFrame(emulatorLoop);
+                return;
+            }
+
+            const now = performance.now();
+
+            if (now - state.lastFrameTime < state.frameInterval) {
+                requestAnimationFrame(emulatorLoop);
+                return;
+            }
+            state.lastFrameTime = now;
+
+            for (let i = 0; i < state.cyclesPerFrame; i++) {
+                cpuCycle();
+            }
+
+            if (now - state.lastTimerUpdate >= 16) {
+                updateTimers();
+                state.lastTimerUpdate = now;
+            }
+
+            if (state.drawFlag) {
+                state.drawFlag = false;
+                drawDisplay();
+            }
+
+            frameCount++;
+            if (now - fpsTime >= 1000) {
+                fpsDisplay.textContent = frameCount + ' FPS';
+                frameCount = 0;
+                fpsTime = now;
+            }
+
+            requestAnimationFrame(emulatorLoop);
+        }
+
+        // ─── Virtual Keyboard Events ───
+        function sendVirtualKey(key, pressed) {
+            let chipKey = KEY_MAP[key];
+            if (chipKey === undefined) {
+                if (key === 'l' && pressed) {
+                    if (state.hasRomLoaded && state.romData) {
+                        loadRom(state.romData, state.romPath);
+                        showOverlay('Reiniciado!', 800);
+                    }
+                    return;
+                }
+                return;
+            }
+
+            if (pressed) {
+                if (!state.keys[chipKey]) {
+                    state.keysEdge[chipKey] = 1;
+                }
+                state.keys[chipKey] = 1;
+            } else {
+                state.keys[chipKey] = 0;
+            }
+
+            const keyEl = virtualKeyboard.querySelector(`[data-key="${key}"]`);
+            if (keyEl) {
+                if (pressed) keyEl.style.background = '#3a5a7a';
+                else keyEl.style.background = '';
+            }
+        }
+
+        // ─── Keyboard toggle ───
+        function toggleKeyboard(show) {
+            const wasOpen = virtualKeyboard.classList.contains('open');
+            if (show === undefined) {
+                virtualKeyboard.classList.toggle('open');
+            } else if (show) {
+                virtualKeyboard.classList.add('open');
+            } else {
+                virtualKeyboard.classList.remove('open');
+            }
+
+            const isOpen = virtualKeyboard.classList.contains('open');
+            if (isOpen && !wasOpen) {
+                const kbHeight = virtualKeyboard.offsetHeight;
+                appContainer.style.marginBottom = kbHeight + 'px';
+                appContainer.classList.add('keyboard-open');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else if (!isOpen && wasOpen) {
+                appContainer.style.marginBottom = '0';
+                appContainer.classList.remove('keyboard-open');
+            }
+        }
+
+        // ─── Help toggle ───
+        function toggleHelp(show) {
+            if (show) {
+                helpOverlay.classList.add('active');
+                state.helpVisible = true;
+            } else {
+                helpOverlay.classList.remove('active');
+                state.helpVisible = false;
+            }
+        }
+
+        // ─── ROM loading from file ───
+        function loadRomFromFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                loadRom(data, file.name);
+                showOverlay(`Carregado: ${file.name}`, 1200);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // ─── Keyboard events (físico) ───
+        function handleKeyDown(e) {
+            const key = e.key.toLowerCase();
+            if (key === 'escape') {
+                e.preventDefault();
+                state.running = false;
+                showOverlay('Pressione "Carregar ROM" para escolher um jogo', 2000);
+                romNameEl.textContent = 'Nenhuma ROM';
+                updateModeBadge();
+                return;
+            }
+            if (key === 'f1') {
+                e.preventDefault();
+                toggleHelp(true);
+                return;
+            }
+            if (key === 'l' && state.hasRomLoaded) {
+                e.preventDefault();
+                if (state.romData) {
+                    loadRom(state.romData, state.romPath);
+                    showOverlay('Reiniciado!', 800);
+                }
+                return;
+            }
+            if (key === 'p') {
+                e.preventDefault();
+                if (state.running) {
+                    randomColors();
+                    showOverlay('Cores aleatórias!', 800);
+                }
+                return;
+            }
+            if (key === 'o') {
+                e.preventDefault();
+                if (state.running) saveColorsToStorage();
+                return;
+            }
+
+            let chipKey = KEY_MAP[key];
+            if (chipKey === undefined) {
+                if (e.key === 'ArrowUp') chipKey = KEY_MAP['arrowup'];
+                else if (e.key === 'ArrowDown') chipKey = KEY_MAP['arrowdown'];
+                else if (e.key === 'ArrowLeft') chipKey = KEY_MAP['arrowleft'];
+                else if (e.key === 'ArrowRight') chipKey = KEY_MAP['arrowright'];
+            }
+            if (chipKey !== undefined) {
+                e.preventDefault();
+                if (!state.keys[chipKey]) {
+                    state.keysEdge[chipKey] = 1;
+                }
+                state.keys[chipKey] = 1;
+            }
+        }
+
+        function handleKeyUp(e) {
+            const key = e.key.toLowerCase();
+            let chipKey = KEY_MAP[key];
+            if (chipKey === undefined) {
+                if (e.key === 'ArrowUp') chipKey = KEY_MAP['arrowup'];
+                else if (e.key === 'ArrowDown') chipKey = KEY_MAP['arrowdown'];
+                else if (e.key === 'ArrowLeft') chipKey = KEY_MAP['arrowleft'];
+                else if (e.key === 'ArrowRight') chipKey = KEY_MAP['arrowright'];
+            }
+            if (chipKey !== undefined) {
+                e.preventDefault();
+                state.keys[chipKey] = 0;
+            }
+        }
+
+        // ─── Event listeners ───
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+
+        virtualKeyboard.addEventListener('pointerdown', (e) => {
+            const keyEl = e.target.closest('.key');
+            if (!keyEl) return;
+            const key = keyEl.dataset.key;
+            if (key) {
+                e.preventDefault();
+                sendVirtualKey(key, true);
+            }
+        });
+
+        virtualKeyboard.addEventListener('pointerup', (e) => {
+            const keyEl = e.target.closest('.key');
+            if (!keyEl) return;
+            const key = keyEl.dataset.key;
+            if (key) {
+                e.preventDefault();
+                sendVirtualKey(key, false);
+            }
+        });
+
+        virtualKeyboard.addEventListener('pointerleave', (e) => {
+            const keys = virtualKeyboard.querySelectorAll('.key');
+            keys.forEach(el => {
+                const k = el.dataset.key;
+                if (k) sendVirtualKey(k, false);
+                el.style.background = '';
+            });
+        });
+
+        // Novo botão do teclado na toolbar
+        keyboardToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleKeyboard();
+        });
+
+        keyboardCloseBtn.addEventListener('click', () => {
+            toggleKeyboard(false);
+        });
+
+        // Toque no canvas também abre o teclado
+        canvasWrapper.addEventListener('click', (e) => {
+            if (state.running) {
+                toggleKeyboard(true);
+            } else {
+                showOverlay('Carregue uma ROM primeiro', 1200);
+            }
+        });
+
+        // Fecha o teclado se clicar fora
+        document.addEventListener('click', (e) => {
+            if (virtualKeyboard.classList.contains('open')) {
+                const target = e.target;
+                if (!virtualKeyboard.contains(target) && target !== keyboardToggleBtn && !canvasWrapper.contains(target)) {
+                    toggleKeyboard(false);
+                }
+            }
+        });
+
+        romInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                loadRomFromFile(e.target.files[0]);
+            }
+            e.target.value = '';
+        });
+
+        document.addEventListener('dragover', (e) => { e.preventDefault(); });
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (['ch8', 'sch8', 'bin'].includes(ext)) {
+                    loadRomFromFile(file);
+                } else {
+                    showOverlay('Formato não suportado. Use .ch8 ou .sch8', 1500);
+                }
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            if (state.hasRomLoaded && state.romData) {
+                loadRom(state.romData, state.romPath);
+                showOverlay('Reiniciado!', 800);
+            } else {
+                showOverlay('Carregue uma ROM primeiro', 1200);
+            }
+        });
+
+        randColorBtn.addEventListener('click', () => {
+            if (state.running) {
+                randomColors();
+                showOverlay('Cores aleatórias!', 800);
+            } else {
+                showOverlay('Carregue uma ROM primeiro', 1200);
+            }
+        });
+
+        saveColorBtn.addEventListener('click', () => {
+            if (state.running) saveColorsToStorage();
+            else showOverlay('Carregue uma ROM primeiro', 1200);
+        });
+
+        modeToggleBtn.addEventListener('click', toggleMode);
+
+        helpBtn.addEventListener('click', () => toggleHelp(true));
+        helpCloseBtn.addEventListener('click', () => toggleHelp(false));
+        helpOverlay.addEventListener('click', (e) => {
+            if (e.target === helpOverlay) toggleHelp(false);
+        });
+
+        document.addEventListener('blur', () => {
+            state.keys.fill(0);
+        });
+
+        // ─── Init ───
+        resetEmulator();
+        state.running = false;
+        romNameEl.textContent = 'Nenhuma ROM';
+        state.forceMode = null;
+        applyMode();
+        drawDisplay();
+        showOverlay('📂 Toque no canvas para abrir o teclado', 3000);
+
+        requestAnimationFrame(emulatorLoop);
+
+        canvas.setAttribute('tabindex', '0');
+        canvas.focus();
+
+        console.log('🕹️ CHIP-8 / SCHIP Emulator com teclado virtual na toolbar.');
+        console.log('📱 Toque no canvas ou no ícone ⌨️ para abrir o teclado.');
+    </script>
+
+</body>
+</html>
